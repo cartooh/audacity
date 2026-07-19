@@ -197,6 +197,7 @@ MenuItem* AppMenuModel::makeFileMenu()
         makeSeparator(),
 
         makeMenuItem("project-import"),
+        makeMenuItem("raw-data-import"),
 
         makeSeparator(),
 

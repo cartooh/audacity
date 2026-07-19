@@ -5,6 +5,7 @@
 
 #include "modularity/ioc.h"
 #include "context/iglobalcontext.h"
+#include "framework/interactive/iinteractive.h"
 #include "trackedit/itracksinteraction.h"
 #include "trackedit/iselectioncontroller.h"
 
@@ -21,6 +22,7 @@ class TempoDetection;
 class Au3Importer : public IImporter, public muse::Contextable
 {
     muse::ContextInject<au::context::IGlobalContext> globalContext{ this };
+    muse::ContextInject<muse::IInteractive> interactive{ this };
     muse::ContextInject<trackedit::ITracksInteraction> tracksInteraction{ this };
     muse::ContextInject<trackedit::ISelectionController> selectionController{ this };
     muse::ContextInject<ILabelsImporter> labelsImporter{ this };
@@ -35,6 +37,10 @@ public:
     bool importIntoTrack(const muse::io::path_t& filePath, trackedit::TrackId dstTrackId, muse::secs_t startTime) override;
     bool importFromSystemClipboard(const std::vector<muse::io::path_t>& filePaths, muse::secs_t startTime) override;
     std::vector<std::string> supportedExtensions() const override;
+
+    bool isRawDataFile(const muse::io::path_t& filePath) const override;
+    bool importRaw(const muse::io::path_t& filePath) override;
+    bool importRawData(const muse::io::path_t& filePath, const RawImportParams& params) override;
 
 private:
     bool isProjectEmpty() const;

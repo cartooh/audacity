@@ -62,5 +62,6 @@ std::vector<std::string> Au3LabelsImporter::supportedExtensions() const
         fileSuffixFromType(FileType::TEXT),
         fileSuffixFromType(FileType::SUBRIP),
         fileSuffixFromType(FileType::WEBVTT),
+        "lbl", // plain-text label files, same format as .txt
     };
 }

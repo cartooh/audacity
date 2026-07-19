@@ -69,6 +69,7 @@ void ProjectActionsController::init()
     dispatcher()->reg(this, "cloud-file-open", this, &ProjectActionsController::openCloudProject);
     dispatcher()->reg(this, "clear-recent", this, &ProjectActionsController::clearRecentProjects);
     dispatcher()->reg(this, "project-import", this, &ProjectActionsController::importFiles);
+    dispatcher()->reg(this, "raw-data-import", this, &ProjectActionsController::importRawData);
     dispatcher()->reg(this, "project-import-startup-media", this, &ProjectActionsController::importStartupMedia);
 
     dispatcher()->reg(this, "file-save", [this]() { saveProject(SaveMode::Save); });
@@ -411,6 +412,45 @@ void ProjectActionsController::importFiles(const muse::actions::ActionData& args
     }
 
     project->import(filePaths);
+}
+
+void ProjectActionsController::importRawData()
+{
+    const IAudacityProjectPtr project = globalContext()->currentProject();
+    if (!project) {
+        return;
+    }
+
+    std::vector<std::string> filter {
+        trc("project", "Raw data files") + " (*.raw *.pcm)",
+        trc("project", "All files") + " (*)"
+    };
+
+    io::path_t defaultDir = configuration()->lastOpenedProjectsPath();
+    if (defaultDir.empty()) {
+        defaultDir = configuration()->userProjectsPath();
+    }
+
+    const io::path_t filePath = interactive()->selectOpeningFileSync(
+        trc("project", "Select any uncompressed audio file"), defaultDir, filter);
+
+    if (filePath.empty()) {
+        return;
+    }
+
+    configuration()->setLastOpenedProjectsPath(io::dirpath(filePath));
+
+    if (!importer()->importRaw(filePath)) {
+        return;
+    }
+
+    if (const trackedit::ITrackeditProjectPtr trackeditProject = globalContext()->currentTrackeditProject()) {
+        trackeditProject->reload();
+    }
+
+    const std::string importInfo = muse::qtrc("project", "Imported file “%1”?")
+                                   .arg(filePath.toString()).toStdString();
+    projectHistory()->pushHistoryState(importInfo, muse::trc("project", "Import"));
 }
 
 void ProjectActionsController::importStartupMedia(const muse::actions::ActionData& args)
@@ -757,8 +797,8 @@ muse::io::paths_t ProjectActionsController::selectImportFiles()
     std::string animationAndImageFileExt = "*.gif *.flic *.swf *.image2 *.image2pipe";
     std::string rawFileExt
         =
-            "*.al *.ul *.s16be *.u16be *.s8 *.u8 *.ub *.uw *.4xm *.MTV *.afc *.aifc *.apc *.apl *.mac *.avs *.302 *.daud *.ffm *.cgi *.mm *.mpegtsraw *.mpegvideo *.nuv *.sw *.sb *.son *.sol *.vfwcap";
-    std::string textFileExt = "*.txt *.srt *.vtt";
+            "*.raw *.pcm *.al *.ul *.s16be *.u16be *.s8 *.u8 *.ub *.uw *.4xm *.MTV *.afc *.aifc *.apc *.apl *.mac *.avs *.302 *.daud *.ffm *.cgi *.mm *.mpegtsraw *.mpegvideo *.nuv *.sw *.sb *.son *.sol *.vfwcap";
+    std::string textFileExt = "*.txt *.lbl *.srt *.vtt";
 
     std::string allExt = audioFileExt + " " + videoFileExt + " " + gameMediaFileExt + " " + streamingFileExt + " "
                          + animationAndImageFileExt + " " + rawFileExt + " " + textFileExt;

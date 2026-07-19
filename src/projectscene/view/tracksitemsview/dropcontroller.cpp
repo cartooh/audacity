@@ -1,5 +1,7 @@
 #include "dropcontroller.h"
 
+#include <QCoreApplication>
+
 using namespace au::projectscene;
 
 namespace {
@@ -16,30 +18,36 @@ void DropController::probeAudioFiles(const QStringList& fileUrls)
 {
     m_lastDraggedUrls.clear();
     m_lastDraggedFilesInfo.clear();
+    m_lastDraggedNonAudioPaths.clear();
 
-    std::vector<muse::io::path_t> localPaths;
-    localPaths.reserve(fileUrls.size());
+    std::vector<std::pair<QString, muse::io::path_t> > candidates;
+    candidates.reserve(fileUrls.size());
 
     const auto exts = importer()->supportedExtensions();
+    const auto labelExts = labelsImporter()->supportedExtensions();
     for (const auto& fileUrl : fileUrls) {
         const QUrl url(fileUrl);
         QString local = url.isLocalFile() ? url.toLocalFile() : fileUrl;
         muse::io::path_t path = muse::io::path_t(local);
+
+        // Raw data and label files cannot be dropped into audio tracks,
+        // they are imported via their own importers on drop
+        if (importer()->isRawDataFile(path) || muse::contains(labelExts, muse::io::suffix(path))) {
+            m_lastDraggedNonAudioPaths.push_back(path);
+            continue;
+        }
+
         if (muse::contains(exts, muse::io::suffix(path))) {
-            localPaths.push_back(path);
-            m_lastDraggedUrls.push_back(fileUrl);
+            candidates.emplace_back(fileUrl, path);
         }
     }
 
-    if (localPaths.empty()) {
-        return;
-    }
-
-    for (const auto& path : localPaths) {
-        au::importexport::FileInfo fileInfo = importer()->fileInfo(path);
+    for (const auto& candidate : candidates) {
+        au::importexport::FileInfo fileInfo = importer()->fileInfo(candidate.second);
         if (fileInfo.isEmpty()) {
             continue;
         }
+        m_lastDraggedUrls.push_back(candidate.first);
         m_lastDraggedFilesInfo.push_back(std::move(fileInfo));
     }
 }
@@ -96,6 +104,7 @@ void DropController::endImportDrag()
     m_tracksCountWhenDragStarted = -1;
     m_lastDraggedFilesInfo.clear();
     m_lastDraggedUrls.clear();
+    m_lastDraggedNonAudioPaths.clear();
 }
 
 int DropController::requiredTracksCount() const
@@ -322,5 +331,23 @@ void DropController::handleDroppedFiles(const std::vector<trackedit::TrackId>& t
 
     project::IAudacityProjectPtr prj = globalContext()->currentProject();
 
-    prj->importIntoTracks(localPaths, adjustedDstTrackIds, startTime);
+    if (!localPaths.empty()) {
+        prj->importIntoTracks(localPaths, adjustedDstTrackIds, startTime);
+    }
+
+    if (!m_lastDraggedNonAudioPaths.empty()) {
+        // Raw data files open the raw import options dialog, label files go
+        // to the labels importer. Defer the import so that the drop event
+        // finishes before any modal dialog is shown.
+        const std::vector<muse::io::path_t> nonAudioPaths = std::move(m_lastDraggedNonAudioPaths);
+        m_lastDraggedNonAudioPaths.clear();
+
+        //! NOTE: qApp as context: this controller may be destroyed before
+        //! the queued call runs (e.g. when used from the clipboard paste flow)
+        QMetaObject::invokeMethod(qApp, [prj, nonAudioPaths]() {
+            if (prj) {
+                prj->import(nonAudioPaths);
+            }
+        }, Qt::QueuedConnection);
+    }
 }
