@@ -3,7 +3,7 @@ name: '[AU4] Build: Windows'
 on:
   pull_request:
     branches:
-    - master
+    - claude/windows-asio-file-extension-he62no
 
   schedule:
     - cron: '0 3 */1 */1 *' # At 03:00 on every day-of-month for master
