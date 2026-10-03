@@ -1,5 +1,14 @@
 # Audacity
 
+> [!NOTE]
+> このリポジトリ（ブランチ `claude/release-3.7.9-import-drop`）は Audacity 3.7.9 をベースにした非公式の改造版です。
+> 追加した機能の説明は [.github/CUSTOM_BUILD_NOTES.md](.github/CUSTOM_BUILD_NOTES.md) を、
+> Windows 版インストーラーは [Releases](https://github.com/cartooh/audacity/releases) を参照してください。
+>
+> - `.txt` / `.lbl` / `.srt` のドラッグ＆ドロップでラベルトラックを作成
+> - `.raw` / `.pcm` のドラッグ＆ドロップで Raw データ取り込みダイアログを表示
+> - 新規オーディオトラックの表示モード（波形 / スペクトログラム / 両方）と高さのデフォルトを環境設定で変更・リセット
+
 
 [**Audacity**](https://www.audacityteam.org) is an easy-to-use, multi-track audio editor and recorder for Windows, macOS, GNU/Linux and other operating systems.
 

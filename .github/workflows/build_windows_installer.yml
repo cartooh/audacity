@@ -82,10 +82,24 @@ jobs:
     if: github.event_name == 'push' || inputs.create_release
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4
+      with:
+        sparse-checkout: .github
     - uses: actions/download-artifact@v4
       with:
         name: release-files
         path: release-files
+    - name: Write release notes
+      shell: bash
+      run: |
+        {
+          echo "Windows x64 build of \`${{ github.ref_name }}\` at ${{ github.sha }}."
+          echo
+          echo "- \`audacity-win-*.exe\`: インストーラー"
+          echo "- \`audacity-win-*.zip\`: インストール不要版（展開して Audacity.exe を実行）"
+          echo
+          cat .github/CUSTOM_BUILD_NOTES.md
+        } > release-notes.md
     - name: Create release
       uses: softprops/action-gh-release@v2
       with:
@@ -93,13 +107,6 @@ jobs:
         target_commitish: ${{ github.sha }}
         name: Audacity 3.7.9 custom build ${{ github.run_number }}
         prerelease: true
-        body: |
-          Windows x64 build of `${{ github.ref_name }}` at ${{ github.sha }}.
-
-          - `audacity-win-*.exe`: installer
-          - `audacity-win-*.zip`: portable version (extract and run Audacity.exe)
-
-          The binaries are not code signed, so Windows SmartScreen may show
-          a warning on first launch ("More info" > "Run anyway").
+        body_path: release-notes.md
         files: release-files/*
         fail_on_unmatched_files: true
