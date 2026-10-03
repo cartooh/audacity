@@ -8,6 +8,7 @@
 > - `.txt` / `.lbl` / `.srt` のドラッグ＆ドロップでラベルトラックを作成
 > - `.raw` / `.pcm` のドラッグ＆ドロップで Raw データ取り込みダイアログを表示
 > - 新規オーディオトラックの表示モード（波形 / スペクトログラム / 両方）と高さのデフォルトを環境設定で変更・リセット
+> - Windows 64bit 版で ASIO に対応
 
 
 [**Audacity**](https://www.audacityteam.org) is an easy-to-use, multi-track audio editor and recorder for Windows, macOS, GNU/Linux and other operating systems.

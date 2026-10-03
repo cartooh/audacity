@@ -33,6 +33,7 @@ env:
   BUILD_LEVEL: beta
   CONFIGURE_CMAKE_OPTIONS: |
     -Daudacity_has_url_schemes_support=On
+    -Daudacity_has_asio_support=On
 
 jobs:
   build_windows:
