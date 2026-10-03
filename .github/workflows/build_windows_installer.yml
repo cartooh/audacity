@@ -1,0 +1,99 @@
+name: Build Windows Installer
+
+# Builds the Windows x64 installer (Inno Setup) and portable zip for this
+# branch, uploads them as workflow artifacts and attaches them to a
+# GitHub Release so they can be downloaded without signing in.
+
+on:
+  push:
+    branches:
+      - claude/release-3.7.9-import-drop
+    paths-ignore: ["au4/**", "**/**.md", "**/LICENSE.txt", ".github/ISSUE_TEMPLATE/**"]
+
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Attach the installer to a new GitHub Release'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+  CONFIGURATION_TYPES: RelWithDebInfo
+  # The packaging action only builds the Inno Setup installer for
+  # non-alpha build levels
+  BUILD_LEVEL: beta
+  CONFIGURE_CMAKE_OPTIONS: |
+    -Daudacity_has_url_schemes_support=On
+
+jobs:
+  build_windows:
+    name: Windows MSVC 2022 (x86_64)
+    runs-on: windows-2022
+    steps:
+    - name: Checkout Audacity
+      uses: actions/checkout@v4
+    - name: Setup Dependencies
+      uses: audacity/audacity-actions/dependencies@v7
+    - name: Configure
+      uses: audacity/audacity-actions/configure@v7
+      with:
+        generator: Visual Studio 17 2022
+        arch: x64
+        build_type: ${{ env.BUILD_TYPE }}
+        configuration_types: ${{ env.CONFIGURATION_TYPES }}
+        build_level: ${{ env.BUILD_LEVEL }}
+        cmake_options: |
+          ${{ env.CONFIGURE_CMAKE_OPTIONS }}
+          -DCMAKE_SYSTEM_VERSION=10.0.22000.0
+    - name: Build
+      uses: audacity/audacity-actions/build@v7
+    - name: Package
+      uses: audacity/audacity-actions/package@v7
+      with:
+        postfix: '-msvc2022'
+    - name: Upload packages for release
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-files
+        path: |
+          .build.x64/package/*.exe
+          .build.x64/package/*.zip
+        if-no-files-found: error
+        retention-days: 1
+
+  release:
+    name: Publish GitHub Release
+    needs: build_windows
+    if: github.event_name == 'push' || inputs.create_release
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: release-files
+        path: release-files
+    - name: Create release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: 3.7.9-custom.${{ github.run_number }}
+        target_commitish: ${{ github.sha }}
+        name: Audacity 3.7.9 custom build ${{ github.run_number }}
+        prerelease: true
+        body: |
+          Windows x64 build of `${{ github.ref_name }}` at ${{ github.sha }}.
+
+          - `audacity-win-*.exe`: installer
+          - `audacity-win-*.zip`: portable version (extract and run Audacity.exe)
+
+          The binaries are not code signed, so Windows SmartScreen may show
+          a warning on first launch ("More info" > "Run anyway").
+        files: release-files/*
+        fail_on_unmatched_files: true
