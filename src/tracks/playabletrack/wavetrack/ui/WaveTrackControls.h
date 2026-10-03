@@ -15,6 +15,7 @@ Paul Licameli split from TrackPanel.cpp
 #include "Observer.h"
 
 class CellularPanel;
+class IntSetting;
 class LWSlider;
 class MuteButtonHandle;
 class SoloButtonHandle;
@@ -44,7 +45,13 @@ public:
 
    const TCPLines& GetTCPLines() const override;
 
+   //! Height of each channel of a new wave track, from preferences
    static unsigned DefaultWaveTrackHeight();
+   //! Built-in default height, used when the preference is not set
+   static unsigned OriginalDefaultWaveTrackHeight();
+   //! Preference for the height of each channel of new wave tracks
+   static IntSetting &DefaultWaveTrackHeightSetting();
+   static constexpr int MaxDefaultWaveTrackHeight = 2000;
    static void GetVolumeRect(const wxRect &rect, wxRect &dest);
    static void GetPanRect(const wxRect &rect, wxRect &dest);
 

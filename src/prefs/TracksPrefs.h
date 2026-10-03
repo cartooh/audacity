@@ -21,6 +21,8 @@
 #include "WaveformSettings.h" // for ScaleTypeValues
 
 class ShuttleGui;
+class wxChoice;
+class wxSpinCtrl;
 
 #define TRACKS_PREFS_PLUGIN_SYMBOL ComponentInterfaceSymbol{ XO("Tracks") }
 
@@ -51,6 +53,10 @@ class AUDACITY_DLL_API TracksPrefs final : public PrefsPanel
  private:
    void Populate();
    void PopulateOrExchange(ShuttleGui & S) override;
+   void OnResetViewDefaults();
+
+   wxChoice *mViewModeChoice{};
+   wxSpinCtrl *mDefaultHeightSpin{};
 
    static int iPreferencePinned;
 };

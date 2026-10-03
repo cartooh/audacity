@@ -21,7 +21,7 @@
 #include "TracksPrefs.h"
 #include "MemoryX.h"
 
-//#include <algorithm>
+#include <algorithm>
 //#include <wx/defs.h>
 
 #include "Prefs.h"
@@ -31,6 +31,12 @@
 #include "Viewport.h"
 #include "WaveformSettings.h"
 #include "WaveTrack.h"
+#include "../tracks/playabletrack/wavetrack/ui/WaveTrackControls.h"
+#include "../tracks/ui/CommonTrackInfo.h"
+
+#include <wx/button.h>
+#include <wx/choice.h>
+#include <wx/spinctrl.h>
 
 int TracksPrefs::iPreferencePinned = -1;
 
@@ -330,8 +336,19 @@ void TracksPrefs::PopulateOrExchange(ShuttleGui & S)
          );
 #endif
 
-         S.TieChoice(XXO("Default &view mode:"),
+         auto viewModeChoice = S.TieChoice(XXO("Default &view mode:"),
                      viewModeSetting );
+
+         auto heightSpin = S.TieSpinCtrl(
+            XXO("Default audio track &height (per channel, pixels):"),
+            WaveTrackControls::DefaultWaveTrackHeightSetting(),
+            WaveTrackControls::MaxDefaultWaveTrackHeight,
+            static_cast<int>(CommonTrackInfo::MinimumTrackHeight()));
+
+         if (S.GetMode() == eIsCreating) {
+            mViewModeChoice = viewModeChoice;
+            mDefaultHeightSpin = heightSpin;
+         }
 
          S.TieChoice(
             XXO("Default Waveform scale:"),
@@ -345,6 +362,15 @@ void TracksPrefs::PopulateOrExchange(ShuttleGui & S)
                       30);
       }
       S.EndMultiColumn();
+
+      if (S.GetMode() == eIsCreating) {
+         // Restores the default view mode (Waveform) and the built-in
+         // default track height; the change is saved when OK is pressed
+         auto resetButton = S.AddButton(
+            XXO("&Reset view mode and height to defaults"));
+         resetButton->Bind(wxEVT_BUTTON,
+            [this](wxCommandEvent&) { OnResetViewDefaults(); });
+      }
    }
    S.EndStatic();
 
@@ -361,6 +387,22 @@ void TracksPrefs::PopulateOrExchange(ShuttleGui & S)
    }
    S.EndStatic();
    S.EndScroller();
+}
+
+void TracksPrefs::OnResetViewDefaults()
+{
+   if (mViewModeChoice) {
+      auto viewModeSetting = ViewModeSetting();
+      const auto &symbols = viewModeSetting.GetSymbols();
+      const auto &defaultSymbol = viewModeSetting.Default();
+      const auto iter =
+         std::find(symbols.begin(), symbols.end(), defaultSymbol);
+      if (iter != symbols.end())
+         mViewModeChoice->SetSelection(iter - symbols.begin());
+   }
+   if (mDefaultHeightSpin)
+      mDefaultHeightSpin->SetValue(static_cast<int>(
+         WaveTrackControls::OriginalDefaultWaveTrackHeight()));
 }
 
 bool TracksPrefs::GetPinnedHeadPreference()
@@ -413,8 +455,20 @@ bool TracksPrefs::Commit()
       gPrefs->Flush();
    }
 
+   // Don't store the height if it is the built-in default, so that the
+   // default follows any future change of the track controls layout
+   auto &heightSetting = WaveTrackControls::DefaultWaveTrackHeightSetting();
+   // The dialog wrote the preference directly, so drop the cached value
+   heightSetting.Invalidate();
+   if (heightSetting.Read() ==
+       static_cast<int>(WaveTrackControls::OriginalDefaultWaveTrackHeight())) {
+      heightSetting.Delete();
+      gPrefs->Flush();
+   }
+
    AudioTrackNameSetting.Invalidate();
    TracksFitVerticallyZoomed.Invalidate();
+   heightSetting.Invalidate();
    return true;
 }
 

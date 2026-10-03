@@ -18,6 +18,7 @@ Paul Licameli split from TrackPanel.cpp
 #include "WaveChannelViewConstants.h"
 #include "AudioIOBase.h"
 #include "../../../../CellularPanel.h"
+#include "Prefs.h"
 #include "Project.h"
 #include "ProjectAudioIO.h"
 #include "ProjectHistory.h"
@@ -41,6 +42,7 @@ Paul Licameli split from TrackPanel.cpp
 #include "UserException.h"
 #include "Identifier.h"
 
+#include <algorithm>
 #include <wx/app.h>
 #include <wx/combobox.h>
 #include <wx/frame.h>
@@ -1044,9 +1046,23 @@ void WaveTrackControls::GetPanRect(const wxRect &rect_, wxRect & dest)
    dest.height = results.second;
 }
 
-unsigned WaveTrackControls::DefaultWaveTrackHeight()
+unsigned WaveTrackControls::OriginalDefaultWaveTrackHeight()
 {
    return CommonTrackInfo::DefaultTrackHeight( waveTrackTCPLines );
+}
+
+IntSetting &WaveTrackControls::DefaultWaveTrackHeightSetting()
+{
+   static IntSetting setting{ wxT("/GUI/DefaultWaveTrackHeight"),
+      [] { return static_cast<int>(OriginalDefaultWaveTrackHeight()); } };
+   return setting;
+}
+
+unsigned WaveTrackControls::DefaultWaveTrackHeight()
+{
+   const int minHeight = CommonTrackInfo::MinimumTrackHeight();
+   const int height = DefaultWaveTrackHeightSetting().Read();
+   return std::clamp(height, minHeight, MaxDefaultWaveTrackHeight);
 }
 
 const TCPLines &WaveTrackControls::GetTCPLines() const
