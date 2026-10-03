@@ -28,6 +28,7 @@ Paul Licameli split from AudacityProject.cpp
 #include "Import.h"
 #include "ImportPlugin.h"
 #include "ImportProgressListener.h"
+#include "LabelTrack.h"
 #include "Legacy.h"
 #include "MusicInformationRetrieval.h"
 #include "PlatformCompatibility.h"
@@ -59,6 +60,7 @@ Paul Licameli split from AudacityProject.cpp
 #include "WaveTrack.h"
 #include "WaveTrackUtilities.h"
 #include "XMLFileReader.h"
+#include "import/ImportRaw.h"
 #include "import/ImportStreamDialog.h"
 #include "prefs/ImportExportPrefs.h"
 #include "widgets/FileHistory.h"
@@ -72,6 +74,7 @@ Paul Licameli split from AudacityProject.cpp
 #include <optional>
 #include <wx/frame.h>
 #include <wx/log.h>
+#include <wx/textfile.h>
 
 static const AudacityProject::AttachedObjects::RegisteredFactory sFileManagerKey{
    []( AudacityProject &parent ){
@@ -1482,6 +1485,60 @@ bool ProjectFileManager::ImportWithoutTempoDetection(
       { return DoImport(fileName, addToHistory, nullptr); });
 }
 
+namespace
+{
+bool HasExtension(const FilePath& fileName, std::initializer_list<const wxChar*> exts)
+{
+   const auto ext = fileName.AfterLast('.');
+   if (ext == fileName)
+      return false;
+   return std::any_of(exts.begin(), exts.end(),
+      [&](const wxChar* e) { return ext.IsSameAs(e, false); });
+}
+
+// Plain text (.txt, .lbl) and SubRip (.srt) files are imported as label tracks
+bool IsLabelFile(const FilePath& fileName)
+{
+   return HasExtension(fileName, { wxT("txt"), wxT("lbl"), wxT("srt") });
+}
+
+// Headerless audio files are imported via the raw data import dialog
+bool IsRawDataFile(const FilePath& fileName)
+{
+   return HasExtension(fileName, { wxT("raw"), wxT("pcm") });
+}
+
+bool ImportLabelFile(AudacityProject& project, const FilePath& fileName)
+{
+   wxTextFile f;
+   if (!f.Open(fileName)) {
+      AudacityMessageBox(
+         XO("Could not open file: %s").Format( fileName ),
+         XO("Error Importing"),
+         wxOK | wxCENTRE | wxICON_ERROR,
+         &GetProjectFrame(project));
+      return false;
+   }
+
+   auto newTrack = std::make_shared<LabelTrack>();
+   wxString sTrackName;
+   wxFileName::SplitPath(fileName, nullptr, nullptr, &sTrackName, nullptr);
+   newTrack->SetName(sTrackName);
+
+   newTrack->Import(f, LabelTrack::FormatForFileName(fileName));
+
+   SelectUtilities::SelectNone( project );
+   newTrack->SetSelected(true);
+   TrackList::Get( project ).Add( newTrack );
+
+   ProjectHistory::Get( project ).PushState(
+      XO("Imported labels from '%s'").Format( fileName ),
+      XO("Import Labels") );
+
+   return true;
+}
+} // namespace
+
 // If pNewTrackList is passed in non-NULL, it gets filled with the pointers to NEW tracks.
 bool ProjectFileManager::DoImport(
    const FilePath& fileName, bool addToHistory,
@@ -1493,6 +1550,28 @@ bool ProjectFileManager::DoImport(
    bool initiallyEmpty = TrackList::Get(project).empty();
    TrackHolders newTracks;
    TranslatableString errorMessage;
+
+   // Handle label files directly, creating a new label track
+   if (IsLabelFile(fileName)) {
+      if (!ImportLabelFile(project, fileName))
+         return false;
+      if (addToHistory)
+         FileHistory::Global().Append(fileName);
+      return true;
+   }
+
+   // Handle raw data files directly, asking for the format in a dialog
+   if (IsRawDataFile(fileName)) {
+      ::ImportRaw(project, &GetProjectFrame(project), fileName,
+         &WaveTrackFactory::Get(project), newTracks);
+      if (newTracks.empty())
+         return false;
+      if (addToHistory)
+         FileHistory::Global().Append(fileName);
+      // PRL: Undo history is incremented inside this:
+      AddImportedTracks(fileName, std::move(newTracks));
+      return true;
+   }
 
 #ifdef EXPERIMENTAL_IMPORT_AUP3
    // Handle AUP3 ("project") files directly
