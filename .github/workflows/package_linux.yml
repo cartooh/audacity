@@ -2,6 +2,9 @@ name: Build Audacity Linux Packages
 
 on:
   push:
+    # Windows builds for claude/ branches use build_windows_installer.yml
+    branches-ignore:
+      - 'claude/**'
   workflow_dispatch:
     inputs:
       build_level:

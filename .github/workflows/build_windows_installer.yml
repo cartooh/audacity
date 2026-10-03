@@ -56,6 +56,12 @@ jobs:
           -DCMAKE_SYSTEM_VERSION=10.0.22000.0
     - name: Build
       uses: audacity/audacity-actions/build@v7
+    - name: Test
+      shell: pwsh
+      run: |
+        pushd .build.x64
+        ctest -C ${{ env.BUILD_TYPE }} --verbose
+        popd
     - name: Package
       uses: audacity/audacity-actions/package@v7
       with:

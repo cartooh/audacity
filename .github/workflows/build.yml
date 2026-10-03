@@ -2,6 +2,9 @@ name: Build Audacity
 
 on:
   push:
+    # Windows builds for claude/ branches use build_windows_installer.yml
+    branches-ignore:
+      - 'claude/**'
     paths-ignore: ["au4/**", "**/**.md", "**/**.dox2", "**/**.dox", "**/**.dox.in", "**/LICENSE.txt", "/.github/ISSUE_TEMPLATE/**", "INSTALL", "CHANGELOG.txt", ".editorconfig", ".gitignore", ".gitattributes"]
 
   pull_request:
